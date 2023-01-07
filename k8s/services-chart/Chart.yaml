@@ -1,0 +1,20 @@
+apiVersion: v1
+name: services-chart
+type: application
+version: 1.0.0
+dependencies:
+  - name: service-chart
+    version: 0.0.1-SNAPSHOT
+    alias: gateway
+
+  - name: service-chart
+    version: 0.0.1-SNAPSHOT
+    alias: payment
+
+  - name: service-chart
+    version: 0.0.1-SNAPSHOT
+    alias: rental
+
+  - name: service-chart
+    version: 0.0.1-SNAPSHOT
+    alias: cars

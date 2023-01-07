@@ -1,0 +1,36 @@
+dockerRegistry: vgilko/dockerhub
+
+gateway:
+  service:
+    port: 8080
+    image:
+      name: gateway
+      version: "0.0.1-SNAPSHOT"
+    isGateway: true
+
+payment:
+  service:
+    port: 8050
+    image:
+      name: payment
+      version: "0.0.1-SNAPSHOT"
+    database: 
+      name: payment
+
+rental:
+  service:
+    port: 8060
+    image:
+      name: rental
+      version: "0.0.1-SNAPSHOT"
+    database:
+      name: rental
+
+cars:
+  service:
+    port: 8070
+    image:
+      name: cars
+      version: "0.0.1-SNAPSHOT"
+    database: 
+      name: cars

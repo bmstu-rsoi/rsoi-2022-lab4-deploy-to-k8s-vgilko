@@ -1,0 +1,86 @@
+name: rsoi-2022-lab4-deploy-to-k8s-outsidious
+
+# The build section defines how to build the images of your development environment
+# More info: https://www.okteto.com/docs/reference/manifest/#build
+build:
+
+  gateway:
+    context: gateway
+    dockerfile: gateway\Dockerfile
+    image: gateway
+
+  cars:
+    context: cars
+    dockerfile: cars\Dockerfile
+    image: cars
+
+  payment:
+    context: payment
+    dockerfile: payment\Dockerfile
+    image: payment
+
+  postgres: ""
+
+
+  rental:
+    context: rental
+    dockerfile: rental\Dockerfile
+    image: rental
+
+# The deploy section defines how to deploy your development environment
+# More info: https://www.okteto.com/docs/reference/manifest/#deploy
+deploy:
+  compose:
+    file: docker-compose.yml
+    services:
+      - postgres
+      - payment
+      - rental
+      - cars
+      - gateway
+
+# The dependencies section defines other git repositories to be deployed as part of your development environment
+# More info: https://www.okteto.com/docs/reference/manifest/#dependencies
+# dependencies:
+#   - https://github.com/okteto/sample
+
+
+# The dev section defines how to activate a development container
+# More info: https://www.okteto.com/docs/reference/manifest/#dev
+dev:
+  gateway:
+    image: gateway
+    command: bash
+    workdir: /app
+    sync:
+      - .:/app
+    forward:
+      - 9229:9229
+  cars:
+    image: cars
+    command: bash
+    workdir: /app
+    sync:
+      - .:/app
+    forward:
+      - 9229:9229
+      - 8070:8070
+  rental:
+    image: rental
+    command: bash
+    workdir: /app
+    sync:
+      - .:/app
+    forward:
+      - 9229:9229
+      - 8060:8060
+  payment:
+    image: payment
+    command: bash
+    workdir: /app
+    sync:
+      - .:/app
+    forward:
+      - 9229:9229
+      - 8050:8050
+

@@ -1,7 +1,15 @@
 name: GitHub Classroom Workflow
 on:
   push:
-    branches: [ master ]
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+env:
+  OKTETO_SERVER: ${{ secrets.OKTETO_SERVER }}
+  OKTETO_TOKEN: ${{ secrets.OKTETO_TOKEN }}
+
 jobs:
   build:
     name: Autograding
@@ -11,17 +19,70 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: docker/setup-buildx-action@v2
+      - name: Login in dockerhub
+        uses: docker/login-action@v2
+        with:
+          username: vgilko
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-      # TODO build, publish to docker hub, deploy to k8s
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'adopt'
+
+      - name: Build with Maven
+        uses: stCarolas/setup-maven@v4.4
+        with:
+          maven-version: 3.6.3
+      - name: cars build
+        run: mvn -f cars/pom.xml --batch-mode --update-snapshots clean install -DskipTests
+      - name: payment build
+        run: mvn -f payment/pom.xml --batch-mode --update-snapshots clean install -DskipTests
+      - name: rental build
+        run: mvn -f rental/pom.xml --batch-mode --update-snapshots clean install -DskipTests
+      - name: gateway build
+        run: mvn -f gateway/pom.xml --batch-mode --update-snapshots clean install -DskipTests
+
+      - name: Build images
+        run: |
+          docker build ./rental/ -t vgilko/dockerhub:rental
+          docker build ./payment/ -t vgilko/dockerhub:payment
+          docker build ./cars/ -t vgilko/dockerhub:cars
+          docker build ./gateway/ -t vgilko/dockerhub:gateway
+
+      - name: Push docker images
+        run: |
+          docker push vgilko/dockerhub:rental
+          docker push vgilko/dockerhub:payment
+          docker push vgilko/dockerhub:cars
+          docker push vgilko/dockerhub:gateway
+          sleep 30
+
+      - name: Deploy to Okteto
+        run: |
+          kubectl config set-cluster car-rental-service-cluster --server="$OKTETO_SERVER" --insecure-skip-tls-verify=true
+          kubectl config set-credentials cloud_okteto_com-user --token="$OKTETO_TOKEN"
+          kubectl config set-context default --cluster=car-rental-service-cluster --user=cloud_okteto_com-user --namespace="vgilko"
+          kubectl config use-context default
+          cd k8s && helm upgrade --install services ./services-chart
+          sleep 60
+
 
       - name: Run API Tests
         uses: matt-ball/newman-action@master
         with:
-          collection: <variant>/postman/collection.json
-          environment: <variant>/postman/environment.json
+          collection: info/variants/v3/postman/collection.json
+          environment: info/variants/v3/postman/environment.json
           delayRequest: 100
           reporters: '[ "cli" ]'
+
+      - name: Dump docker logs on failure
+        if: failure()
+        uses: jwalton/gh-docker-logs@v2
+        with:
+          images: 'library/postgres:13,gateway,rental,payment,cars'
+          tail: '250'
 
       - uses: education/autograding@v1
         id: autograder

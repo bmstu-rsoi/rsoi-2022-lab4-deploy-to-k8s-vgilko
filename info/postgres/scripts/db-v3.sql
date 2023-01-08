@@ -1,0 +1,5 @@
+CREATE DATABASE cars;
+
+CREATE DATABASE rentals;
+
+CREATE DATABASE payment;

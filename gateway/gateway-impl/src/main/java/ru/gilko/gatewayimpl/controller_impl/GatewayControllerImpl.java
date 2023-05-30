@@ -26,7 +26,7 @@ public class GatewayControllerImpl implements GatewayController {
 
     @Override
     public PageableCollectionOutDto<CarDto> getAllCars(boolean showAll, int page, int size) {
-        log.info("Request for reading cars. Request params: showAll {}, page {}, size {}", showAll, page, showAll);
+        log.info("Request for reading cars. Request params: showAll {}, page {}, size {}", showAll, page, size);
 
         return gatewayService.getAllCars(showAll, page, size);
     }

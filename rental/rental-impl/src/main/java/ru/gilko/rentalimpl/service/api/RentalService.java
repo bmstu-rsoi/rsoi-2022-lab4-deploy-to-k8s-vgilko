@@ -12,7 +12,7 @@ public interface RentalService {
 
     List<RentalOutDto> getRentals(String username);
 
-    Optional<RentalOutDto> getRental(UUID rentalUid, String username);
+    RentalOutDto getRental(UUID rentalUid, String username);
 
     void cancelRental(UUID rentalUid, String username);
 

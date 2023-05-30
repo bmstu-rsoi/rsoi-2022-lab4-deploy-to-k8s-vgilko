@@ -1,0 +1,8 @@
+kafka-clusters:
+  - name: local
+    bootstrapServers: localhost:29092
+    zookeeper: localhost:22181
+    kafkaUiUrl: http://localhost:8065/api/kafka
+    metrics:
+      type: JMX
+      jmxPort: 9997

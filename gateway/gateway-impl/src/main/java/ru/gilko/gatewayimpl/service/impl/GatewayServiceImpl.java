@@ -4,6 +4,7 @@ import feign.FeignException;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import ru.gilko.carsapi.dto.CarOutDto;
 import ru.gilko.carsapi.feign.CarFeign;
@@ -13,22 +14,21 @@ import ru.gilko.gatewayapi.dto.car.CarDto;
 import ru.gilko.gatewayapi.dto.payment.PaymentDto;
 import ru.gilko.gatewayapi.dto.rental.RentalCreationOutDto;
 import ru.gilko.gatewayapi.dto.rental.RentalDto;
+import ru.gilko.gatewayapi.dto.rental.StatisticDto;
 import ru.gilko.gatewayapi.dto.wrapper.PageableCollectionOutDto;
 import ru.gilko.gatewayapi.exception.InvalidOperationException;
 import ru.gilko.gatewayapi.exception.NoSuchEntityException;
+import ru.gilko.gatewayimpl.service.api.ExternalServiceCaller;
 import ru.gilko.gatewayimpl.service.api.GatewayService;
+import ru.gilko.gatewayimpl.utils.MappingUtils;
 import ru.gilko.paymentapi.dto.PaymentOutDto;
 import ru.gilko.paymentapi.feign.PaymentFeign;
 import ru.gilko.rentalapi.dto.RentalInDto;
 import ru.gilko.rentalapi.dto.RentalOutDto;
 import ru.gilko.rentalapi.feign.RentalFeign;
 
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+import java.time.LocalDate;
+import java.util.*;
 
 import static java.time.temporal.ChronoUnit.DAYS;
 
@@ -38,28 +38,48 @@ public class GatewayServiceImpl implements GatewayService {
     private final CarFeign carFeign;
     private final RentalFeign rentalFeign;
     private final PaymentFeign paymentFeign;
+    private final ExternalServiceCaller externalServiceCaller;
+
+    private final KafkaTemplate<String, StatisticDto> statisticBroker;
+
+    private final MappingUtils mappingUtils;
 
     private final ModelMapper modelMapper;
 
-    public GatewayServiceImpl(CarFeign carFeign, RentalFeign rentalFeign, PaymentFeign paymentFeign, ModelMapper modelMapper) {
+    public GatewayServiceImpl(CarFeign carFeign,
+                              RentalFeign rentalFeign,
+                              PaymentFeign paymentFeign,
+                              ExternalServiceCaller externalServiceCaller,
+                              KafkaTemplate<String, StatisticDto> statisticBroker,
+                              MappingUtils mappingUtils,
+                              ModelMapper modelMapper) {
         this.carFeign = carFeign;
         this.rentalFeign = rentalFeign;
         this.paymentFeign = paymentFeign;
+        this.externalServiceCaller = externalServiceCaller;
+        this.statisticBroker = statisticBroker;
+        this.mappingUtils = mappingUtils;
         this.modelMapper = modelMapper;
     }
 
     @Override
     public PageableCollectionOutDto<CarDto> getAllCars(boolean showAll, int page, int size) {
-        Page<CarOutDto> carOutDtos = carFeign.getCars(showAll, page, size);
+        Page<CarOutDto> carOutDtos;
+        try {
+            carOutDtos = carFeign.getCars(showAll, page, size);
+        } catch (FeignException e) {
+            log.error("Enable to get cars. Exception: {}", e.getMessage());
+            carOutDtos = Page.empty();
+        }
 
         log.info("Received {} entities from car service", carOutDtos.getTotalElements());
 
-        return mapToPageCollectionOutDto(carOutDtos, CarDto.class);
+        return mappingUtils.mapToPageCollectionOutDto(carOutDtos, CarDto.class);
     }
 
     @Override
     public List<RentalDto> getRental(String username) {
-        List<RentalOutDto> rentals = rentalFeign.getRentals(username);
+        List<RentalOutDto> rentals = getRentals(username);
 
         List<UUID> paymentsUids = new LinkedList<>();
         List<UUID> carUids = new LinkedList<>();
@@ -68,18 +88,34 @@ public class GatewayServiceImpl implements GatewayService {
             carUids.add(rentalOutDto.getCarUid());
         });
 
-        Map<UUID, PaymentOutDto> payments = paymentFeign.getPayments(paymentsUids)
-                .stream()
-                .collect(Collectors.toMap(PaymentOutDto::getPaymentUid, Function.identity()));
-
-        Map<UUID, CarOutDto> cars = carFeign.getCars(carUids)
-                .stream()
-                .collect(Collectors.toMap(CarOutDto::getCarUid, Function.identity()));
+        Map<UUID, PaymentOutDto> payments = getPayments(paymentsUids);
+        Map<UUID, CarOutDto> cars = getCars(carUids);
 
         return rentals.stream()
                 .map(rentalOutDto -> buildOutDto(rentalOutDto, payments, cars))
                 .toList();
     }
+
+    private List<RentalOutDto> getRentals(String username) {
+        try {
+            List<RentalOutDto> rentals = rentalFeign.getRentals(username);
+            log.info("Get {} rentals for user {}", rentals.size(), username);
+
+            return rentals;
+        } catch (FeignException e) {
+            log.error("Unable to get rentals for user {}", username);
+            return Collections.emptyList();
+        }
+    }
+
+    private Map<UUID, CarOutDto> getCars(List<UUID> carIds) {
+        return externalServiceCaller.getOrEmpty(carIds, carFeign::getCars, CarOutDto::getCarUid);
+    }
+
+    private Map<UUID, PaymentOutDto> getPayments(List<UUID> paymentUids) {
+        return externalServiceCaller.getOrEmpty(paymentUids, paymentFeign::getPayments, PaymentOutDto::getPaymentUid);
+    }
+
 
     @Override
     public RentalDto getRental(String username, UUID rentalUid) {
@@ -120,6 +156,12 @@ public class GatewayServiceImpl implements GatewayService {
     public void finishRental(String username, UUID rentalUid) {
         try {
             rentalFeign.finishRental(rentalUid, username);
+
+            RentalDto rental = getRental(username, rentalUid);
+
+            statisticBroker.send("statistic", buildStatisticDto(rental));
+
+            changeCarAvailability(rental.getCar().getCarUid());
         } catch (FeignException.NotFound e) {
             log.info("Trying to finish non-existing rental: username = {}, rentalUid = {}", username, rentalUid);
 
@@ -130,11 +172,18 @@ public class GatewayServiceImpl implements GatewayService {
     @Override
     public void cancelRental(String username, UUID rentalUid) {
         try {
-            RentalOutDto rental = rentalFeign.getRental(rentalUid, username);
+            RentalDto rental = getRental(username, rentalUid);
+
+            if (rental.getDateFrom().isBefore(LocalDate.now())) {
+                log.error("Trying to cancel started rental {} for user {}", rental, username);
+                throw new InvalidOperationException("Невозможно отменить начатую аренду.");
+            }
+
+            statisticBroker.send("statistic", buildStatisticDto(rental));
 
             rentalFeign.cancelRental(rentalUid, username);
-            paymentFeign.cancelPayment(rental.getPaymentUid());
-            carFeign.changeAvailability(rental.getCarUid());
+            paymentFeign.cancelPayment(rental.getPayment().getPaymentUid());
+            changeCarAvailability(rental.getCar().getCarUid());
         } catch (FeignException.NotFound e) {
             log.info("Trying to cancel non-existing rental: username = {}, rentalUid = {}", username, rentalUid);
 
@@ -178,28 +227,30 @@ public class GatewayServiceImpl implements GatewayService {
         return rentalFeign.createRental(username, rentalInDto);
     }
 
-    private RentalDto buildOutDto(RentalOutDto rentalOutDto, Map<UUID, PaymentOutDto> payments, Map<UUID, CarOutDto> cars) {
+    private RentalDto buildOutDto(RentalOutDto rentalOutDto,
+                                  Map<UUID, PaymentOutDto> payments,
+                                  Map<UUID, CarOutDto> cars) {
         RentalDto rental = modelMapper.map(rentalOutDto, RentalDto.class);
 
         PaymentOutDto payment = payments.get(rentalOutDto.getPaymentUid());
-        PaymentDto paymentDto = modelMapper.map(payment, PaymentDto.class);
+        if (payment != null) {
+            PaymentDto paymentDto = modelMapper.map(payment, PaymentDto.class);
+            rental.setPayment(paymentDto);
+        }
 
         CarOutDto car = cars.get(rentalOutDto.getCarUid());
-        CarDto carDto = modelMapper.map(car, CarDto.class);
-
-        rental.setPayment(paymentDto);
-        rental.setCar(carDto);
+        if (car != null) {
+            CarDto carDto = modelMapper.map(car, CarDto.class);
+            rental.setCar(carDto);
+        }
 
         return rental;
     }
 
-    private <T> PageableCollectionOutDto<T> mapToPageCollectionOutDto(Page<CarOutDto> page, Class<T> destinationClass) {
-        Page<T> mappedPage = page.map(car -> modelMapper.map(car, destinationClass));
+    private StatisticDto buildStatisticDto(RentalDto rentalDto) {
+        StatisticDto statisticDto = modelMapper.map(rentalDto, StatisticDto.class);
+        statisticDto.setEventDate(LocalDate.now());
 
-        return buildPageCollectionOutDto(mappedPage);
-    }
-
-    private <T> PageableCollectionOutDto<T> buildPageCollectionOutDto(Page<T> page) {
-        return new PageableCollectionOutDto<>(page.getContent(), page.getNumber(), page.getSize(), page.getTotalPages());
+        return statisticDto;
     }
 }

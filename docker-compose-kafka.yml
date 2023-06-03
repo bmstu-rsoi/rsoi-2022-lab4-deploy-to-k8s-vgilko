@@ -21,12 +21,3 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-  kafka-ui:
-    container_name: kafka-ui
-    image: provectuslabs/kafka-ui:latest
-    ports:
-      - "8065:8080"
-    environment:
-      DYNAMIC_CONFIG_ENABLED: 'true'
-    volumes:
-      - ~/kui/dynamic_config.yaml:/etc/kafkaui/dynamic_config.yaml

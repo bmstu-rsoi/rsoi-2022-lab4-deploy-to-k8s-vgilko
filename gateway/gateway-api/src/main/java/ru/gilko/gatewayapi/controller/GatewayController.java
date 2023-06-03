@@ -15,6 +15,8 @@ import javax.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 
+import static ru.gilko.gatewayapi.constants.ControllerUrls.CANCELLED;
+import static ru.gilko.gatewayapi.constants.ControllerUrls.PROFITABLE;
 import static ru.gilko.gatewayapi.constants.ProjectConstants.USERNAME_HEADER;
 
 @CrossOrigin
@@ -61,4 +63,11 @@ public interface GatewayController {
                                    @Parameter(description = "ID аренды")
                                    @PathVariable UUID rentalUid);
 
+    @Operation(summary = "Получить статистику по отменам")
+    @GetMapping(CANCELLED)
+    ResponseEntity<?> getCancelledStatistic();
+
+    @Operation(summary = "Получить статистику по рентабельности")
+    @GetMapping(PROFITABLE)
+    ResponseEntity<?> getProfitableStatistic();
 }

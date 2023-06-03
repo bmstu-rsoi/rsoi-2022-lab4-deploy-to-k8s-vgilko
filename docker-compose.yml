@@ -49,5 +49,14 @@ services:
     depends_on:
       - postgres
 
+  statistic:
+    image: statistic
+    build: statistic/
+    ports:
+      - "8085:8085"
+    depends_on:
+      - postgres
+
+
 volumes:
   db-data:

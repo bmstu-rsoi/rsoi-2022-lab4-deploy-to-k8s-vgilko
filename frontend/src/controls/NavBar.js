@@ -9,6 +9,9 @@ function NavBar() {
             <Nav.Item>
                 <Nav.Link href="/rentals">История поездок</Nav.Link>
             </Nav.Item>
+            <Nav.Item>
+                <Nav.Link href="/statistic">Статистика</Nav.Link>
+            </Nav.Item>
         </Nav>
     );
 }

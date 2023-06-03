@@ -15,6 +15,8 @@ import ru.gilko.gatewayapi.dto.payment.PaymentDto;
 import ru.gilko.gatewayapi.dto.rental.RentalCreationOutDto;
 import ru.gilko.gatewayapi.dto.rental.RentalDto;
 import ru.gilko.gatewayapi.dto.rental.StatisticDto;
+import ru.gilko.gatewayapi.dto.statistic.CancelingStatisticDto;
+import ru.gilko.gatewayapi.dto.statistic.ProfitableModelDto;
 import ru.gilko.gatewayapi.dto.wrapper.PageableCollectionOutDto;
 import ru.gilko.gatewayapi.exception.InvalidOperationException;
 import ru.gilko.gatewayapi.exception.NoSuchEntityException;
@@ -26,6 +28,7 @@ import ru.gilko.paymentapi.feign.PaymentFeign;
 import ru.gilko.rentalapi.dto.RentalInDto;
 import ru.gilko.rentalapi.dto.RentalOutDto;
 import ru.gilko.rentalapi.feign.RentalFeign;
+import ru.gilko.statisticapi.feign.StatisticFeign;
 
 import java.time.LocalDate;
 import java.util.*;
@@ -38,6 +41,7 @@ public class GatewayServiceImpl implements GatewayService {
     private final CarFeign carFeign;
     private final RentalFeign rentalFeign;
     private final PaymentFeign paymentFeign;
+    private final StatisticFeign statisticFeign;
     private final ExternalServiceCaller externalServiceCaller;
 
     private final KafkaTemplate<String, StatisticDto> statisticBroker;
@@ -49,6 +53,7 @@ public class GatewayServiceImpl implements GatewayService {
     public GatewayServiceImpl(CarFeign carFeign,
                               RentalFeign rentalFeign,
                               PaymentFeign paymentFeign,
+                              StatisticFeign statisticFeign,
                               ExternalServiceCaller externalServiceCaller,
                               KafkaTemplate<String, StatisticDto> statisticBroker,
                               MappingUtils mappingUtils,
@@ -56,6 +61,7 @@ public class GatewayServiceImpl implements GatewayService {
         this.carFeign = carFeign;
         this.rentalFeign = rentalFeign;
         this.paymentFeign = paymentFeign;
+        this.statisticFeign = statisticFeign;
         this.externalServiceCaller = externalServiceCaller;
         this.statisticBroker = statisticBroker;
         this.mappingUtils = mappingUtils;
@@ -188,6 +194,30 @@ public class GatewayServiceImpl implements GatewayService {
             log.info("Trying to cancel non-existing rental: username = {}, rentalUid = {}", username, rentalUid);
 
             throw new NoSuchEntityException(e.getMessage());
+        }
+    }
+
+    @Override
+    public List<CancelingStatisticDto> getCancellingStatistic() {
+        try {
+            return statisticFeign.getCancelled().stream()
+                    .map(profitableDto -> modelMapper.map(profitableDto, CancelingStatisticDto.class))
+                    .toList();
+        } catch (FeignException e) {
+            log.error("Unable to get cancelling statistic from statistic service");
+            return Collections.emptyList();
+        }
+    }
+
+    @Override
+    public List<ProfitableModelDto> getProfitableStatistic() {
+        try {
+            return statisticFeign.getProfitable().stream()
+                    .map(profitableDto -> modelMapper.map(profitableDto, ProfitableModelDto.class))
+                    .toList();
+        } catch (FeignException e) {
+            log.error("Unable to get profitable statistic from statistic service");
+            return Collections.emptyList();
         }
     }
 

@@ -4,6 +4,8 @@ import ru.gilko.gatewayapi.dto.CarBookDto;
 import ru.gilko.gatewayapi.dto.car.CarDto;
 import ru.gilko.gatewayapi.dto.rental.RentalCreationOutDto;
 import ru.gilko.gatewayapi.dto.rental.RentalDto;
+import ru.gilko.gatewayapi.dto.statistic.CancelingStatisticDto;
+import ru.gilko.gatewayapi.dto.statistic.ProfitableModelDto;
 import ru.gilko.gatewayapi.dto.wrapper.PageableCollectionOutDto;
 
 import java.util.List;
@@ -21,4 +23,8 @@ public interface GatewayService {
     void finishRental(String username, UUID rentalUid);
 
     void cancelRental(String username, UUID rentalUid);
+
+    List<CancelingStatisticDto> getCancellingStatistic();
+
+    List<ProfitableModelDto> getProfitableStatistic();
 }

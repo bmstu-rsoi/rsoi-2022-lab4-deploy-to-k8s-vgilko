@@ -5,6 +5,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import {Container, ThemeProvider} from "react-bootstrap";
 import RentalCardList from "./component/rentals/RentalCardList";
 import NavBar from "./controls/NavBar";
+import StatisticComponent from "./component/statistic/StatisticComponent";
 
 
 function App() {
@@ -18,6 +19,7 @@ function App() {
                             <Route path="/" element={<Navigate to={"/cars"}/>}/>
                             <Route path="/cars" element={<CarCardList/>}/>
                             <Route path="/rentals" element={<RentalCardList/>}/>
+                            <Route path="/statistic" element={<StatisticComponent/>}/>
                         </Routes>
                     </Container>
                 </ThemeProvider>

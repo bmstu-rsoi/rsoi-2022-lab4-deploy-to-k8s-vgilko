@@ -9,4 +9,5 @@
     <include file="002_createCarsTable.xml" relativeToChangelogFile="true"/>
     <include file="003_initDatabase.sql" relativeToChangelogFile="true"/>
     <include file="004_addCars.sql" relativeToChangelogFile="true"/>
+    <include file="005_addCarsAnotherModels.sql" relativeToChangelogFile="true"/>
 </databaseChangeLog>

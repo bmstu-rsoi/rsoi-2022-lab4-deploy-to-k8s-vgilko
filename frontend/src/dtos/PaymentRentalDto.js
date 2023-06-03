@@ -1,12 +1,13 @@
+import PaymentStatusEnum from "../enums/PaymentStatusEnum";
 
 class PaymentRentalDto {
-    paymentUid: String;
-    status: String;
-    price: Number;
+    paymentUid: string;
+    status: PaymentStatusEnum;
+    price: number;
 
-    constructor(paymentUid: String,
+    constructor(paymentUid: string,
                 status: PaymentStatusEnum,
-                price: Number) {
+                price: number) {
         this.paymentUid = paymentUid;
         this.status = status;
         this.price = price;

@@ -71,4 +71,18 @@ public class GatewayControllerImpl implements GatewayController {
 
         return ResponseEntity.noContent().build();
     }
+
+    @Override
+    public ResponseEntity<?> getCancelledStatistic() {
+        log.info("Request for getting cancelling statistic");
+
+        return ResponseEntity.ok(gatewayService.getCancellingStatistic());
+    }
+
+    @Override
+    public ResponseEntity<?> getProfitableStatistic() {
+        log.info("Request for getting profitable statistic");
+
+        return ResponseEntity.ok(gatewayService.getProfitableStatistic());
+    }
 }

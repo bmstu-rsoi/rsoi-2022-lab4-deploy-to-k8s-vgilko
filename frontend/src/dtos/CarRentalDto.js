@@ -1,8 +1,8 @@
 class CarRentalDto {
-    carUid: String;
-    brand: String;
-    model: String;
-    registrationNumber: String;
+    carUid: string;
+    brand: string;
+    model: string;
+    registrationNumber: string;
 
     constructor(carUid, brand, model, registrationNumber) {
         this.carUid = carUid;

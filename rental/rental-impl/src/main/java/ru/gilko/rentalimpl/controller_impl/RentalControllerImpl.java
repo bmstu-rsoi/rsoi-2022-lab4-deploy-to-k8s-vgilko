@@ -1,6 +1,7 @@
 package ru.gilko.rentalimpl.controller_impl;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -13,7 +14,6 @@ import ru.gilko.rentalapi.dto.RentalOutDto;
 import ru.gilko.rentalimpl.service.api.RentalService;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @RestController
@@ -44,12 +44,9 @@ public class RentalControllerImpl implements RentalController {
     public ResponseEntity<RentalOutDto> getRental(UUID rentalUid, String username) {
         log.info("Request for reading rental {} of user {}", rentalUid, username);
 
-        Optional<RentalOutDto> rental = rentalService.getRental(rentalUid, username);
+        RentalOutDto rental = rentalService.getRental(rentalUid, username);
 
-        rental.ifPresent(rentalOutDto -> log.debug(rentalOutDto.toString()));
-
-        return rental.map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+        return new ResponseEntity<>(rental, HttpStatus.OK);
     }
 
     @Override

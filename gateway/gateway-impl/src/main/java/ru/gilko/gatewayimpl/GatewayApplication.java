@@ -5,11 +5,14 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 
 @SpringBootApplication
-@EnableFeignClients(basePackages = {"ru.gilko.carsapi.feign", "ru.gilko.rentalapi.feign", "ru.gilko.paymentapi.feign"})
+@EnableFeignClients(basePackages = {
+        "ru.gilko.carsapi.feign",
+        "ru.gilko.rentalapi.feign",
+        "ru.gilko.paymentapi.feign",
+        "ru.gilko.statisticapi.feign"})
 public class GatewayApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(GatewayApplication.class, args);
     }
-
 }

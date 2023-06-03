@@ -26,7 +26,7 @@ public class GatewayControllerImpl implements GatewayController {
 
     @Override
     public PageableCollectionOutDto<CarDto> getAllCars(boolean showAll, int page, int size) {
-        log.info("Request for reading cars. Request params: showAll {}, page {}, size {}", showAll, page, showAll);
+        log.info("Request for reading cars. Request params: showAll {}, page {}, size {}", showAll, page, size);
 
         return gatewayService.getAllCars(showAll, page, size);
     }
@@ -70,5 +70,19 @@ public class GatewayControllerImpl implements GatewayController {
         gatewayService.cancelRental(username, rentalUid);
 
         return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<?> getCancelledStatistic() {
+        log.info("Request for getting cancelling statistic");
+
+        return ResponseEntity.ok(gatewayService.getCancellingStatistic());
+    }
+
+    @Override
+    public ResponseEntity<?> getProfitableStatistic() {
+        log.info("Request for getting profitable statistic");
+
+        return ResponseEntity.ok(gatewayService.getProfitableStatistic());
     }
 }

@@ -2,15 +2,18 @@ package ru.gilko.rentalimpl.service.impl;
 
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import ru.gilko.rentalapi.constants.enums.RentalStatus;
 import ru.gilko.rentalapi.dto.RentalInDto;
 import ru.gilko.rentalapi.dto.RentalOutDto;
+import ru.gilko.rentalapi.exceptions.InvalidOperationException;
 import ru.gilko.rentalapi.exceptions.NoSuchEntityException;
 import ru.gilko.rentalimpl.domain.Rental;
 import ru.gilko.rentalimpl.repository.RentalRepository;
 import ru.gilko.rentalimpl.service.api.RentalService;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -45,8 +48,8 @@ public class RentalServiceImpl implements RentalService {
     }
 
     public List<RentalOutDto> getRentals(String username) {
-        List<Rental> rentals = rentalRepository.findAllByUsername(username);
-
+        Sort sort = Sort.by("status").descending().and(Sort.by("dateTo").ascending());
+        List<Rental> rentals = rentalRepository.findAllByUsername(username, sort);
         log.info("Get {} rentals for username {}", rentals.size(), username);
 
         return rentals.stream()
@@ -55,36 +58,44 @@ public class RentalServiceImpl implements RentalService {
     }
 
     @Override
-    public Optional<RentalOutDto> getRental(UUID rentalUid, String username) {
-        Optional<Rental> rental = rentalRepository.findByUsernameAndRentalUid(username, rentalUid);
+    public RentalOutDto getRental(UUID rentalUid, String username) {
+        Rental rental = getRentalDomain(rentalUid, username);
 
-        rental.ifPresent(value -> log.info("Get rental: {}", value));
-
-        return rental.map(optionalRental -> modelMapper.map(rental.get(), RentalOutDto.class));
+        return modelMapper.map(rental, RentalOutDto.class);
     }
 
     @Override
     public void cancelRental(UUID rentalUid, String username) {
-        changeRentalStatus(username, rentalUid, RentalStatus.CANCELED);
+        Rental rental = getRentalDomain(rentalUid, username);
+
+        if (rental.getDateFrom().isBefore(LocalDate.now())) {
+            throw new InvalidOperationException("Невозможно отменить начатую аренду.");
+        }
+
+        changeRentalStatus(rental, RentalStatus.CANCELED);
     }
 
     @Override
     public void finishRental(UUID rentalUid, String username) {
-        changeRentalStatus(username, rentalUid, RentalStatus.FINISHED);
+        Rental rental = getRentalDomain(rentalUid, username);
+
+        changeRentalStatus(rental, RentalStatus.FINISHED);
     }
 
-    private void changeRentalStatus(String username, UUID rentalUid, RentalStatus finished) {
+    private void changeRentalStatus(Rental rental, RentalStatus status) {
+        rental.setStatus(status);
+
+        Rental updatedRental = rentalRepository.save(rental);
+        log.info("Rental {} status was changed. New status: {}", rental.getId(), updatedRental.getStatus());
+    }
+
+    public Rental getRentalDomain(UUID rentalUid, String username) {
         Optional<Rental> rental = rentalRepository.findByUsernameAndRentalUid(username, rentalUid);
 
         if (rental.isEmpty()) {
             log.error("Requesting rental {} for user {} doesn't exist", rentalUid, username);
             throw new NoSuchEntityException("There is no rental %s for user %s".formatted(rentalUid, username));
         }
-
-        Rental unpackedRental = rental.get();
-        unpackedRental.setStatus(finished);
-
-        Rental updatedRental = rentalRepository.save(unpackedRental);
-        log.info("Rental {} status was changed. New status: {}", rentalUid, updatedRental.getStatus());
+        return rental.get();
     }
 }
